@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Press+Start+2P"
+    />
+  </head>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f1f1f1;
+      font-family: "Press Start 2P", cursive;
+    }
+    img {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: none;
+    }
+  </style>
+  <body>
+    <canvas width="500" height="500"></canvas>
+    <img src="./adult.jpeg" alt="">
+    <script>
+      const canvas = document.querySelector("canvas");
+      const img = document.querySelector("img");
+      const ctx = canvas.getContext("2d");
+      const colors = ["red", "green", "blue", "yellow", "black"];
+      let generationComplete = false;
+      class Maze {
+        constructor(size, rows, cols) {
+          this.size = size;
+          this.rows = rows;
+          this.cols = cols;
+          this.grid = [];
+          this.stack = [];
+          this.visited = false;
+          this.randomCols = Math.floor(Math.random() * this.cols);
+          this.randomRows = Math.floor(Math.random() * this.rows);
+          this.walls = {
+            top: true,
+            right: true,
+            bottom: true,
+            left: true,
+          };
+          for (let r = 0; r < this.rows; r++) {
+            let row = [];
+            for (let c = 0; c < this.cols; c++) {
+              let cell = this.createCell(r, c);
+              row.push(cell);
+            }
+            this.grid.push(row);
+          }
+          this.current = this.grid[0][0];
+        }
+        createCell(row, col) {
+          return {
+            row,
+            col,
+            visited: false,
+            walls: {
+              top: true,
+              right: true,
+              bottom: true,
+              left: true,
+            },
+          };
+        }
+        drawCell(cell) {
+          const x = cell.col * this.size;
+          const y = cell.row * this.size;
+          ctx.beginPath();
+          if (cell.walls.top) {
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + this.size, y);
+          }
+          if (cell.walls.right) {
+            ctx.moveTo(x + this.size, y);
+            ctx.lineTo(x + this.size, y + this.size);
+          }
+          if (cell.walls.bottom) {
+            ctx.moveTo(x + this.size, y + this.size);
+            ctx.lineTo(x, y + this.size);
+          }
+          if (cell.walls.left) {
+            ctx.moveTo(x, y + this.size);
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        drawMaze() {
+          for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+              this.drawCell(this.grid[r][c]);
+            }
+          }
+        }
+        drawCursor() {
+          const x = this.current.col * this.size;
+          const y = this.current.row * this.size;
+          ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+          ctx.fillRect(x, y, this.size, this.size);
+        }
+        drawEndings() {
+          const x = (this.randomRows - 1) * this.size;
+          const y = (this.randomCols - 1) * this.size;
+          ctx.fillStyle = "green";
+          ctx.fillRect(x, y, this.size, this.size);
+        }
+        isValidMove(row, col) {
+          return row >= 0 && row < this.rows && col >= 0 && col < this.cols;
+        }
+        moveCursor() {
+          let directions = [
+            { row: -1, col: 0 },
+            { row: 0, col: 1 },
+            { row: 1, col: 0 },
+            { row: 0, col: -1 },
+          ];
+          directions = directions.sort(() => Math.random() - 0.5);
+          for (let direction of directions) {
+            // Aquí falta el código
+            let newRow = this.current.row + direction.row; // Nueva fila
+            let newCol = this.current.col + direction.col; // Nueva columna
+            if (this.isValidMove(newRow, newCol)) {
+              let next = this.grid[newRow][newCol];
+              if (!next.visited) {
+                this.stack.push(this.current);
+                this.removeWalls(this.current, next);
+                this.current = next;
+                this.current.visited = true;
+                return true;
+              }
+            }
+          }
+          return false;
+        }
+        removeWalls(current, next) {
+          let row = current.row - next.row;
+          let col = current.col - next.col;
+          if (row === 1) {
+            current.walls.top = false;
+            next.walls.bottom = false;
+          } else if (row === -1) {
+            current.walls.bottom = false;
+            next.walls.top = false;
+          }
+          if (col === 1) {
+            current.walls.left = false;
+            next.walls.right = false;
+          } else if (col === -1) {
+            current.walls.right = false;
+            next.walls.left = false;
+          }
+        }
+        generatePath() {
+          this.grid[0][0].visited = true;
+          let stack = [this.current];
+          let intervalId = setInterval(() => {
+            if (stack.length > 0) {
+              let moved = this.moveCursor();
+              if (moved) {
+                stack.push(this.current);
+              } else {
+                this.current = stack.pop();
+              }
+              if (this.current) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpia el canvas
+                this.drawEndings();
+                this.drawMaze();
+                this.drawCursor();
+              }
+            } else {
+              clearInterval(intervalId); // Detiene el intervalo cuando ya no hay celdas a las que moverse
+              generationComplete = true;
+            }
+          }, 50); // Actualiza la posición del cursor cada 100 milisegundos
+        }
+      }
+      const maze = new Maze(50, 10, 10);
+      maze.generatePath();
+      document.addEventListener("keydown", (event) => {
+        if (generationComplete) {
+          let newRow = maze.current.row;
+          let newCol = maze.current.col;
+          let wallExists = false;
+          switch (event.key) {
+            case "ArrowUp":
+              newRow--;
+              wallExists = maze.current.walls.top;
+              break;
+            case "ArrowRight":
+              newCol++;
+              wallExists = maze.current.walls.right;
+              break;
+            case "ArrowDown":
+              newRow++;
+              wallExists = maze.current.walls.bottom;
+              break;
+            case "ArrowLeft":
+              newCol--;
+              wallExists = maze.current.walls.left;
+              break;
+          }
+          if (maze.isValidMove(newRow, newCol) && !wallExists) {
+            let nextCell = maze.grid[newRow][newCol];
+            let nextCellWallExists = false;
+            switch (event.key) {
+              case "ArrowUp":
+                nextCellWallExists = nextCell.walls.bottom;
+                break;
+              case "ArrowRight":
+                nextCellWallExists = nextCell.walls.left;
+                break;
+              case "ArrowDown":
+                nextCellWallExists = nextCell.walls.top;
+                break;
+              case "ArrowLeft":
+                nextCellWallExists = nextCell.walls.right;
+                break;
+            }
+            if (!nextCellWallExists) {
+              maze.current = nextCell;
+            }
+          }
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          maze.drawMaze();
+          maze.drawCursor();
+          maze.drawEndings();
+          if (maze.current.row === maze.randomCols - 1 && maze.current.col === maze.randomRows - 1) {
+            alert("You won!");
+            img.style.display = "block";
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
